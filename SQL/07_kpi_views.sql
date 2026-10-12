@@ -1,5 +1,4 @@
-USE master;
-GO
+USE [Northwind];
 
 -- =========================================================================================
 -- FILE: 07_kpi_views.sql
@@ -23,9 +22,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_regional_turnover_update', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_regional_turnover_update AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_regional_turnover_update AS
+EXEC(N'ALTER VIEW dbo.v_bi_regional_turnover_update AS
 
 SELECT
     o.ShipCountry,
@@ -55,10 +52,7 @@ INNER JOIN dbo.[Order Details] od
     ON o.OrderID = od.OrderID
 
 GROUP BY
-    o.ShipCountry;
-GO
-
-
+    o.ShipCountry;');
 -- =========================================================================================
 -- VIEW 2: ORDER VALUE OUTLIER DETECTION
 -- Business Objective:
@@ -69,9 +63,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_order_value_outliers', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_order_value_outliers AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_order_value_outliers AS
+EXEC(N'ALTER VIEW dbo.v_bi_order_value_outliers AS
 
 WITH OrderAmounts AS (
     SELECT
@@ -130,16 +122,13 @@ SELECT
 
     CASE
         WHEN OrderAmount < (Q1 - 1.5 * IQR)
-            THEN 'Low-Value Outlier'
+            THEN ''Low-Value Outlier''
         WHEN OrderAmount > (Q3 + 1.5 * IQR)
-            THEN 'High-Value Outlier'
-        ELSE 'Typical Range'
+            THEN ''High-Value Outlier''
+        ELSE ''Typical Range''
     END AS OrderValueClass
 
-FROM Classification;
-GO
-
-
+FROM Classification;');
 -- =========================================================================================
 -- VIEW 3: PRODUCT PERFORMANCE BY REGION & MONTH
 -- Business Objective:
@@ -154,9 +143,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_product_performance_by_region', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_product_performance_by_region AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_product_performance_by_region AS
+EXEC(N'ALTER VIEW dbo.v_bi_product_performance_by_region AS
 
 WITH MonthlyProductPerformance AS (
 
@@ -218,10 +205,7 @@ SELECT
         ORDER BY NetRevenue DESC
     ) AS RegionalMonthlyRevenueRank
 
-FROM MonthlyProductPerformance;
-GO
-
-
+FROM MonthlyProductPerformance;');
 -- =========================================================================================
 -- VIEW 4: SHIPPING & LOGISTICS PERFORMANCE
 -- Business Objective:
@@ -237,9 +221,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_shipping_performance', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_shipping_performance AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_shipping_performance AS
+EXEC(N'ALTER VIEW dbo.v_bi_shipping_performance AS
 
 SELECT
     o.OrderID,
@@ -264,10 +246,10 @@ SELECT
 
     CASE
         WHEN o.RequiredDate IS NULL
-            THEN 'Required Date Missing'
+            THEN ''Required Date Missing''
         WHEN o.ShippedDate > o.RequiredDate
-            THEN 'Shipped After Required Date'
-        ELSE 'Shipped By Required Date'
+            THEN ''Shipped After Required Date''
+        ELSE ''Shipped By Required Date''
     END AS ShipmentTimingStatus,
 
     CASE
@@ -286,10 +268,7 @@ INNER JOIN dbo.Shippers s
     ON o.ShipVia = s.ShipperID
 
 WHERE o.ShippedDate IS NOT NULL
-  AND o.ShippedDate >= o.OrderDate;
-GO
-
-
+  AND o.ShippedDate >= o.OrderDate;');
 -- =========================================================================================
 -- VIEW 5: CUSTOMER RFM SEGMENTATION
 -- Business Objective:
@@ -304,9 +283,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_customer_360', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_customer_360 AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_customer_360 AS
+EXEC(N'ALTER VIEW dbo.v_bi_customer_360 AS
 
 WITH ReferenceDate AS (
     SELECT
@@ -431,24 +408,24 @@ SELECT
         WHEN r.R_Score >= 3
              AND r.F_Score >= 3
              AND r.M_Score >= 3
-            THEN 'Champions / VIP'
+            THEN ''Champions / VIP''
 
         WHEN r.R_Score <= 2
              AND r.F_Score >= 3
              AND r.M_Score >= 3
-            THEN 'At Risk / High Value'
+            THEN ''At Risk / High Value''
 
         WHEN r.R_Score >= 3
              AND r.F_Score <= 2
              AND r.M_Score <= 2
-            THEN 'New / Occasional Customers'
+            THEN ''New / Occasional Customers''
 
         WHEN r.R_Score = 1
              AND r.F_Score = 1
              AND r.M_Score = 1
-            THEN 'Inactive / Low Value'
+            THEN ''Inactive / Low Value''
 
-        ELSE 'Regular Customers'
+        ELSE ''Regular Customers''
     END AS Customer_Segment,
 
     1 AS CustomerCount
@@ -456,10 +433,7 @@ SELECT
 FROM RFM_Scores r
 
 INNER JOIN dbo.Customers c
-    ON r.CustomerID = c.CustomerID;
-GO
-
-
+    ON r.CustomerID = c.CustomerID;');
 -- =========================================================================================
 -- VIEW 6: EMPLOYEE SALES PERFORMANCE
 -- Business Objective:
@@ -474,9 +448,7 @@ GO
 
 IF OBJECT_ID(N'dbo.v_bi_employee_performance', N'V') IS NULL
     EXEC(N'CREATE VIEW dbo.v_bi_employee_performance AS SELECT 1 AS Placeholder;');
-GO
-
-ALTER VIEW dbo.v_bi_employee_performance AS
+EXEC(N'ALTER VIEW dbo.v_bi_employee_performance AS
 
 WITH OrderRevenue AS (
     SELECT
@@ -513,7 +485,7 @@ EmployeeMetrics AS (
 
 SELECT
     e.EmployeeID,
-    e.FirstName + ' ' + e.LastName AS SalesRep,
+    e.FirstName + '' '' + e.LastName AS SalesRep,
     e.Title AS EmployeeRole,
     em.TotalOrdersManaged,
     em.NetRevenueGenerated,
@@ -530,10 +502,7 @@ SELECT
 FROM EmployeeMetrics em
 
 INNER JOIN dbo.Employees e
-    ON em.EmployeeID = e.EmployeeID;
-GO
-
-
+    ON em.EmployeeID = e.EmployeeID;');
 -- =========================================================================================
 -- OPTIONAL VALIDATION QUERIES
 -- Run these after the view definitions to reconcile the BI layer with validated baselines.
