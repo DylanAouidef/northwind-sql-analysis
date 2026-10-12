@@ -39,7 +39,15 @@ The sales trend covers July 1996 through April 1998 and explicitly excludes the 
 
 5. **The revenue leader and the AOV leader are different employees.** Margaret Peacock manages **156 orders**, generating approximately **$232.9k** and **18.40%** of company net revenue. Anne Dodsworth has the highest displayed revenue per order at **$1,797.86**, across **43 orders**. These are complementary measures of sales activity; territory, account allocation, tenure, and targets are needed to assess individual performance fairly.
 
-*Metrics and screenshots: the five-page export `Northwind_—_Business_Performance_Dashboard.pdf`, based on imported SQL results. Monetary notation is normalized to English in this README.*
+*Metrics were checked against SQL results and the five Looker Studio dashboard pages. Screenshots are available in `screenshots/`; monetary notation is normalized to English in this README.*
+
+## Actionable recommendations (proposals, not measured outcomes)
+
+- **Customer retention:** review the **10 At Risk / High Value customers**, validate whether the observed inactivity differs from their normal ordering cadence, and test targeted outreach only where justified.
+- **Product planning:** separate **net-revenue leaders** from **high-unit-volume products** when prioritizing assortment and replenishment; current inventory fields are not historical stock data.
+- **Shipping operations:** investigate the observed **order-to-shipment** differences across carriers and destinations before attributing the variation to a carrier or changing operational policy.
+
+For the evidence, suggested pilot actions, monitoring KPIs and limits, see **[Business recommendations and decision plan (FR)](docs/RECOMMANDATIONS_METIER.md)**. No intervention or post-action performance improvement is claimed.
 
 ## Dashboard preview
 
@@ -54,7 +62,7 @@ Revenue trend, country ranking, headline KPIs, and order-value classification.
 <details>
 <summary>Product Performance</summary>
 
-Product revenue and volume rankings, category revenue, and monthly category volumes. May 1998 is excluded from the monthly volume trend.
+Product revenue and volume rankings, category revenue, and monthly category volumes. May 1998 is excluded from the monthly volume trend. The monthly category-volume chart uses regular stacked columns (absolute units, not 100%-stacked), as shown in the updated screenshot below.
 
 ![Product Catalogue Analysis](screenshots/page2_products.png)
 
@@ -103,8 +111,11 @@ The analysis follows the CQNARD sequence: Context, Questions, data quality and p
 | `screenshots/` | Five dashboard captures referenced by this README |
 | [Northwind_ER_A4.pdf](Northwind_ER_A4.pdf) | Database relationship diagram |
 | `README.md` | Project objectives, results, metric definitions, and reproduction notes |
+| `SQL/09_controles_reproductibilite.sql` | Read-only verification of tables, constraints, views, and revenue |
+| `SQL/10_exports_looker_studio.sql` | Six SELECTs to export reporting datasets to CSV |
+| `docs/` | Source provenance, full setup procedure, and BI-source mapping |
 
-The `SQL/` folder contains seven scripts, numbered `01` through `07`. `SQL/07_kpi_views.sql` includes view deployment and reconciliation queries. SQL analysis also includes outputs beyond those displayed in the dashboard.
+The `SQL/` folder contains seven core analysis scripts (`01`–`07`) and three supporting scripts (`08`–`10`) for environment verification, reproducibility checks, and Looker Studio exports. `SQL/07_kpi_views.sql` includes view deployment and reconciliation queries. SQL analysis also includes outputs beyond those displayed in the dashboard.
 
 ## Metric definitions and reporting model
 
@@ -145,17 +156,18 @@ Sales and shipping use `ShipCountry`; customer analysis uses `Customers.Country`
 
 ## Reproduce the analysis
 
-1. Load Northwind into a dedicated SQL Server database. The scripts require `Orders`, `[Order Details]`, `Customers`, `Products`, `Categories`, `Shippers`, and `Employees` in the `dbo` schema. The installation dataset is not included in the SQL archive.
-2. Replace each leading `USE master;` with the database containing those tables, for example `USE [Northwind];`. Use a SQL client configured for T-SQL and `GO` batches, with read access and permission to create or alter views.
-3. Run `SQL/01_data_cleaning.sql` and review its findings. Despite its legacy name, it audits data without updating or deleting records. Then execute analysis scripts `02` through `06` in `SQL/`.
-4. Execute `SQL/07_kpi_views.sql`, including its final reconciliation queries to compare revenue and order totals across the reporting views. Shipping intentionally covers a narrower population than overall sales.
-5. Export the required result sets and import them into Looker Studio. Set field types and aggregations, build the five reporting pages, and align filters with the intended KPI scope. Refreshing the dashboard data requires repeating the export/import process.
+**[Step-by-step setup and validation guide (FR)](docs/REPRODUCTION.md)** · **[Source provenance (FR)](docs/SOURCES_ET_PROVENANCE.md)** · **[SQL → Looker Studio mapping (FR)](docs/MAPPING_LOOKER_STUDIO.md)** · **[Business recommendations (FR)](docs/RECOMMANDATIONS_METIER.md)**
 
-For complete environment reproduction, document the exact Northwind installation source, SQL Server version, and exported file-to-Looker-source mapping alongside the repository. The environment must support the T-SQL functions used by the scripts.
+1. Use a dedicated **`Northwind` SQL Server database**. On a **fresh, separate test instance**, obtain the official [`instnwnd.sql` from Microsoft](https://github.com/microsoft/sql-server-samples/blob/master/samples/databases/northwind-pubs/instnwnd.sql) and load it into an **empty** `Northwind` database. **Do not run the official script on an existing database**: it contains destructive object-recreation commands. On the existing project installation, **skip this step**.
+2. Run `SQL/01_data_cleaning.sql` through `SQL/06_employee_analysis.sql`, then `SQL/07_kpi_views.sql` to create/update the six reporting views. Each analysis script targets `USE [Northwind];`. The DBeaver/JDBC-compatible view script uses `EXEC(N'...')` instead of `GO`.
+3. Run the read-only `SQL/09_controles_reproductibilite.sql` to check source counts, referential constraints, reporting-view row counts, and the **$1,265,793.04** reconciled net revenue (with the documented rounding convention).
+4. Run `SQL/10_exports_looker_studio.sql` and export each BI view to a complete, headered UTF-8 CSV. Build the five Looker Studio pages using the six mapped data sources and validate chart scopes and KPI definitions against the reference screenshots.
+
+**Reproduction status:** SQL execution and targeted controls were verified on the existing SQL Server installation in October 2026. A fully independent rebuild and an identical reconstruction of Looker Studio sources and calculated fields have **not** yet been verified. The original download URL could not be recovered; a locally retained `instnwnd.sql` was identical by SHA-256 to Microsoft's hosted script when compared on 11 October 2026. **The Microsoft dataset-installation script is not redistributed here.**
 
 ## Analytical limits and reconciliation
 
-- **Financial precision:** overall revenue is summarized as approximately $1.27 million. The dashboard total is $1,265,793.04, its displayed employee amounts sum to $1,265,793.05, and the product SQL's fixed reconciliation target is $1,265,793.22. An exact shared baseline requires comparing unrounded outputs and exported precision; the cause of these differences is not established here.
+- **Financial precision (verified in SQL Server, October 2026):** six independent reporting aggregations, together with the order-detail baseline, reconcile to **$1,265,793.0395 before display rounding** (**$1,265,793.04** at two decimals), using `CAST(Discount AS DECIMAL(18,4))`. The **$1,265,793.05** obtained by summing already-rounded employee amounts differs by **$0.01** because rounding before summation is not equivalent to rounding the final sum. The formerly hard-coded **$1,265,793.22** product reference was obsolete; `SQL/04_product_analysis.sql` now recalculates the baseline directly from order details. These checks do not independently certify the source data or the Looker Studio export configuration.
 - **Time coverage:** monthly SQL queries infer the final incomplete month from the latest order date. BI views retain all available months, so trend exclusions must be applied in reporting. First-month coverage and missing months also need consideration when interpreting growth; the short history does not establish recurring seasonality.
 - **Causality and scope:** discount comparisons do not estimate promotional effects or price elasticity. Inventory fields are a snapshot, not historical stock records. Shipment timing differences and employee sales rankings need operational context before business action.
 

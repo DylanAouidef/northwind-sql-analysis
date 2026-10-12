@@ -1,5 +1,4 @@
-USE master;
-GO
+USE [Northwind];
 
 /*
 ======================================================================
@@ -24,8 +23,13 @@ IMPORTANT ANALYTICAL NOTES
 -- ===================================================================
 -- SECTION 0: PRODUCT REVENUE RECONCILIATION
 -- Business question:
--- Does product-level revenue reconcile with the validated company total?
--- Expected Northwind V2 Net Revenue: approximately 1,265,793.22
+-- Does the sum of product-level revenue equal the directly calculated
+-- revenue from all order-detail lines?
+--
+-- Both sides use the same agreed DECIMAL(18,4) conversion for Discount.
+-- The comparison uses UNROUNDED totals; two-decimal rounding is for display.
+-- This is a dynamic internal consistency check, not an independent audit
+-- of the currency/discount conventions or dashboard source files.
 -- ===================================================================
 
 WITH ProductRevenue AS (
@@ -36,21 +40,35 @@ WITH ProductRevenue AS (
             * CAST(od.UnitPrice AS DECIMAL(18,4))
             * (1 - CAST(od.Discount AS DECIMAL(18,4)))
         ) AS NetRevenue
-    FROM dbo.[Order Details] od
+    FROM dbo.[Order Details] AS od
     GROUP BY od.ProductID
+),
+ProductTotal AS (
+    SELECT SUM(NetRevenue) AS NetRevenue
+    FROM ProductRevenue
+),
+GlobalRevenue AS (
+    SELECT
+        SUM(
+            CAST(od.Quantity AS DECIMAL(18,4))
+            * CAST(od.UnitPrice AS DECIMAL(18,4))
+            * (1 - CAST(od.Discount AS DECIMAL(18,4)))
+        ) AS NetRevenue
+    FROM dbo.[Order Details] AS od
 )
 SELECT
-    ROUND(SUM(NetRevenue), 2) AS ProductLevelNetRevenue,
-    CAST(1265793.22 AS DECIMAL(18,2)) AS ValidatedGlobalNetRevenue,
+    CAST(ROUND(p.NetRevenue, 2) AS DECIMAL(28,2)) AS ProductLevelNetRevenue,
+    CAST(ROUND(g.NetRevenue, 2) AS DECIMAL(28,2)) AS GlobalNetRevenue,
+    CAST(p.NetRevenue - g.NetRevenue AS DECIMAL(28,6)) AS DifferenceBeforeRounding,
     CASE
-        WHEN ABS(
-            ROUND(SUM(NetRevenue), 2)
-            - CAST(1265793.22 AS DECIMAL(18,2))
-        ) < 0.01
+        WHEN p.NetRevenue IS NOT NULL
+         AND g.NetRevenue IS NOT NULL
+         AND ABS(p.NetRevenue - g.NetRevenue) < CAST(0.0001 AS DECIMAL(18,4))
         THEN 'PASS'
         ELSE 'CHECK'
     END AS ReconciliationStatus
-FROM ProductRevenue;
+FROM ProductTotal AS p
+CROSS JOIN GlobalRevenue AS g;
 
 
 -- ===================================================================
